@@ -37,3 +37,19 @@ class DashboardUI:
             panel = Panel(header, title=title, border_style="green")
         
         self.console.print(panel)
+
+    def display_main_menu(self) -> str:
+        """
+        Displays the main menu and prompts the user for input.
+
+        Returns:
+            str: The user's choice.
+        """
+        self.console.print("\n[bold]Hauptmenü:[/bold]")
+        self.console.print("  [1] Neue Prüfungsleistung eintragen")
+        self.console.print("  [2] Module anzeigen")
+        self.console.print("  [3] Studiengang anlegen/überschreiben")
+        self.console.print("  [4] Beenden")
+        
+        choice = self.console.input("\nBitte wähle eine Option: ")
+        return choice
