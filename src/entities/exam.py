@@ -67,6 +67,23 @@ class Exam(ABC):
         """
         pass
 
+    def to_dict(self):
+        """Converts the exam object to a dictionary for JSON serialization."""
+        # Start with common attributes
+        data = {
+            '__class__': self.__class__.__name__, # Store the class name
+            'exam_type': self.exam_type.name,
+            'exam_date': self.exam_date.isoformat(),
+            'grade': self.grade,
+            'status': self.status.name
+        }
+        # Add specific attributes from subclasses
+        if isinstance(self, WrittenExam):
+            data['duration_minutes'] = self.duration_minutes
+        elif isinstance(self, Portfolio):
+            data['submission_topics'] = self.submission_topics
+        return data
+
 class WrittenExam(Exam):
     """Represents a concrete written examination."""
     def __init__(self, exam_date: date, duration_minutes: int):

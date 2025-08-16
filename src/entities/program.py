@@ -103,6 +103,16 @@ class DegreeProgram:
                     risk_modules.append(module)
         return risk_modules
     
+    def to_dict(self):
+        """Converts the degree program object to a dictionary."""
+        return {
+            '__class__': 'DegreeProgram',
+            'name': self.name,
+            'target_semesters': self.target_semesters,
+            'target_grade': self.target_grade,
+            'semesters': [semester.to_dict() for semester in self.semesters]
+        }
+    
     def __str__(self) -> str:
         """Provides a comprehensive one-line status summary for the degree program."""
         avg_grade = self.calculate_average_grade()
