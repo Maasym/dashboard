@@ -1,6 +1,7 @@
 """
 Contains the main application controller that orchestrates the different services.
 """
+from src.services.progress_analyzer import ProgressAnalyzer
 from src.services.data_manager import DataManager
 from src.services.ui_service import DashboardUI
 from src.entities.program import DegreeProgram
@@ -41,6 +42,8 @@ class AppController:
                 self._create_new_program()
                 self.program = self.data_manager.load_program(self.data_filepath)
             elif choice == '5':
+                self._show_analysis()
+            elif choice == '6':
                 self.ui.console.print("\nProgramm wird beendet. Auf Wiedersehen!", style="bold blue")
                 break
             else:
@@ -138,4 +141,23 @@ class AppController:
 
         selected_module.add_exam(exam)
         self.data_manager.save_program(self.program, self.data_filepath)
-        self.ui.console.print(f"\n[bold green]✔ Prüfungsleistung für Modul '{selected_module.name}' hinzugefügt.[/bold green]")
+        self.ui.console.print(f"\n[bold green] Prüfungsleistung für Modul '{selected_module.name}' hinzugefügt.[/bold green]")
+    
+    def _show_analysis(self):
+        if not self.program:
+            self.ui.console.print("\n[bold red]Error:[/bold red] Bitte zuerst Studiengang erstellen")
+            return
+        
+        analyzer = ProgressAnalyzer(self.program)
+        
+        # ECTS Trend
+        trend = analyzer.calculate_ects_trend()
+        
+        # Graduation Prediction
+        grad_date = analyzer.predict_graduation()
+        
+        # Risk Modules
+        risk_modules = analyzer.identify_risk_modules()
+        
+        # Display results
+        self.ui.display_analysis(self.program, trend, grad_date, risk_modules)
