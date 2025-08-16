@@ -2,15 +2,18 @@
 Handles all user interface operations, including displaying data and
 capturing user input in the console.
 """
+from datetime import date
+from typing import List
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
 
 # Import entity classes and validation helpers
+from src.entities.exam import ExamStatus
 from src.entities.program import DegreeProgram
 from src.utils.validation import get_validated_input
-from src.entities.module import ModuleStatus
+from src.entities.module import CourseModule, ModuleStatus
 
 class DashboardUI:
     """Manages all console output and user interaction."""
@@ -89,7 +92,8 @@ class DashboardUI:
         self.console.print("  [2] Neue Prüfungsleistung eintragen")
         self.console.print("  [3] Modulübersicht anzeigen")
         self.console.print("  [4] Studiengang anlegen/überschreiben")
-        self.console.print("  [5] Beenden")
+        self.console.print("  [5] Analyse")
+        self.console.print("  [6] Beenden")
         
         choice = self.console.input("\nBitte wähle eine Option: ")
         return choice
@@ -148,3 +152,79 @@ class DashboardUI:
                 )
                 
         self.console.print(table)
+    
+    def display_analysis(self, program: DegreeProgram, trend: str, grad_date: date, risk_modules: List[CourseModule]):
+        # Main analysis panel
+        self.console.print(Panel("[bold]ANALYSE DES STUDIENVERLAUFS[/bold]", style="blue"))
+        
+        # Progress Summary section
+        summary_table = Table(show_header=False, box=None, padding=(0, 2))
+        summary_table.add_column(style="bold", justify="right")
+        summary_table.add_column(style="")
+        
+        # Get progress data for visualization
+        all_modules = program.get_all_modules()
+        total_credits = sum(m.credits for m in all_modules)
+        earned_credits = sum(m.credits for m in all_modules if m.status == ModuleStatus.PASSED)
+        completion = earned_credits / total_credits if total_credits > 0 else 0
+        
+        semesters_used = max(1, program.current_semester() - 1)
+        expected_completion = semesters_used / program.target_semesters
+        
+        # Create visual progress bar
+        bar_length = 30
+        actual_pos = min(int(completion * bar_length), bar_length)
+        expected_pos = min(int(expected_completion * bar_length), bar_length)
+        
+        progress_bar = ""
+        for i in range(bar_length):
+            if i < actual_pos:
+                progress_bar += "█"  # Completed portion
+            elif i == actual_pos and actual_pos < expected_pos:
+                progress_bar += "▌"  # Current position marker
+            elif i == expected_pos:
+                progress_bar += "│"  # Expected position marker
+            else:
+                progress_bar += " "  # Not yet completed
+        
+        # Add labels to the progress bar
+        progress_bar += "\n"
+        progress_bar += " " * actual_pos + "▲" + " " * max(0, expected_pos - actual_pos - 1)
+        progress_bar += "\n"
+        progress_bar += " " * actual_pos + f"Aktuell ({earned_credits}/{total_credits} ECTS)"
+        progress_bar += " " * max(0, expected_pos - actual_pos - 15) + f"│ Erwartet (Semester {semesters_used}/{program.target_semesters})"
+        
+        # Add to summary
+        summary_table.add_row("ECTS-Verlauf:", progress_bar)
+        summary_table.add_row("Vorauss. Abschluss:", grad_date.strftime('%d.%m.%Y'))
+        summary_table.add_row("Status:", f"{trend}")
+        
+        self.console.print(summary_table)
+        
+        # Risk Modules section
+        self.console.print("\n[bold]RISIKOMODULE[/bold]")
+        if risk_modules:
+            risk_table = Table(show_header=True, header_style="bold")
+            risk_table.add_column("Modul", style="cyan")
+            risk_table.add_column("Status", style="bold")
+            risk_table.add_column("Semester", justify="center")
+            risk_table.add_column("Problem", style="red")
+            
+            for module in risk_modules:
+                # Determine problem description
+                if module.status == ModuleStatus.FAILED:
+                    problem = "Nicht bestanden"
+                elif module.status == ModuleStatus.PLANNED and module.planned_semester < program.current_semester():
+                    problem = "Nicht begonnen (überfällig)"
+                else:  # IN_PROGRESS with multiple fails
+                    problem = f"{sum(1 for e in module.exams if e.status == ExamStatus.FAILED)}x nicht bestanden"
+                
+                risk_table.add_row(
+                    module.name,
+                    module.status.name,
+                    str(module.planned_semester),
+                    problem
+                )
+            self.console.print(risk_table)
+        else:
+            self.console.print("[green]Keine Risikomodule identifiziert[/green]")
