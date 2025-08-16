@@ -8,6 +8,8 @@ from rich.text import Text
 
 # Import the main data model class
 from src.entities.program import DegreeProgram
+# CHANGE: Import the new helper function from your utils package
+from src.utils.validation import get_validated_input
 
 class DashboardUI:
     """Manages all console output and user interaction."""
@@ -31,9 +33,7 @@ class DashboardUI:
                          "Bitte legen Sie einen neuen Studiengang an.", justify="center")
             panel = Panel(content, title=title, border_style="blue")
         else:
-            # Use the __str__ method of the program for a quick summary
             header = Text(str(program), justify="center")
-            
             panel = Panel(header, title=title, border_style="green")
         
         self.console.print(panel)
@@ -53,3 +53,25 @@ class DashboardUI:
         
         choice = self.console.input("\nBitte wähle eine Option: ")
         return choice
+    
+    def get_new_program_data(self) -> dict:
+        """
+        Prompts the user to enter data for a new degree program using validation.
+
+        Returns:
+            dict: A dictionary containing the new program's data.
+        """
+        self.console.print("\n[bold blue]Neuen Studiengang anlegen[/bold blue]")
+        
+        # String input does not need type validation
+        name = self.console.input("Name des Studiengangs (z.B. Computer Science): ")
+        
+        # CHANGE: Use the helper function for validated integer and float input
+        target_semesters = get_validated_input("Geplante Semesteranzahl (z.B. 6): ", int)
+        target_grade = get_validated_input("Ziel-Notendurchschnitt (z.B. 2.0): ", float)
+        
+        return {
+            "name": name,
+            "target_semesters": target_semesters,
+            "target_grade": target_grade
+        }
