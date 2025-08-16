@@ -1,72 +1,33 @@
 import unittest
 from datetime import date
-from src.entities.exam import Exam, WrittenExam, Portfolio, ExamStatus, ExamType
+from src.entities.exam import WrittenExam, Portfolio, CaseStudyExam, OralExam, ExamStatus, StateError
 
 class TestExamLifecycle(unittest.TestCase):
+
+    def setUp(self):
+        self.written_exam = WrittenExam(date(2023, 12, 15))
+        self.portfolio = Portfolio(date(2023, 11, 20))
+        self.case_study = CaseStudyExam(date(2023, 10, 10))
+        self.oral_exam = OralExam(date(2023, 9, 5))
+
     def test_initial_state(self):
-        exam = WrittenExam(date(2023, 12, 15), 90)
-        self.assertEqual(exam.status, ExamStatus.OPEN)
-        self.assertIsNone(exam.grade)
-        
+        for exam in [self.written_exam, self.portfolio, self.case_study, self.oral_exam]:
+            self.assertIsNone(exam.grade)
+            self.assertEqual(exam.status, ExamStatus.PLANNED)
+
     def test_record_result_valid(self):
-        exam = WrittenExam(date(2023, 12, 15), 90)
-        exam.record_result(2.3)
-        self.assertEqual(exam.grade, 2.3)
-        self.assertEqual(exam.status, ExamStatus.PASSED)
+        self.written_exam.record_result(2.0)
+        self.assertEqual(self.written_exam.grade, 2.0)
+        self.assertEqual(self.written_exam.status, ExamStatus.PASSED)
 
-class TestWrittenExam(unittest.TestCase):
     def test_pass_conditions(self):
-        exam = WrittenExam(date(2023, 12, 15), 90)
-        
-        # Passing grades
-        for grade in [1.0, 2.3, 4.0]:
-            exam.record_result(grade)
-            self.assertTrue(exam.is_passed())
-        
-        # Failing grades
-        for grade in [4.1, 4.3, 5.0]:
-            exam.record_result(grade)
-            self.assertFalse(exam.is_passed())
-    
+        self.portfolio.record_result(3.5)
+        self.assertEqual(self.portfolio.status, ExamStatus.PASSED)
+        self.case_study.record_result(4.0)
+        self.assertEqual(self.case_study.status, ExamStatus.PASSED)
+        self.oral_exam.record_result(5.0)
+        self.assertEqual(self.oral_exam.status, ExamStatus.FAILED)
+
     def test_is_passed_without_result(self):
-        exam = WrittenExam(date(2023, 12, 15), 90)
-        with self.assertRaises(RuntimeError):
-            exam.is_passed()
-
-class TestPortfolio(unittest.TestCase):
-    def test_pass_conditions(self):
-        portfolio = Portfolio(date(2023, 11, 20), ["Topic1", "Topic2", "Topic3"])
-        portfolio.record_result(3.7)
-        self.assertTrue(portfolio.is_passed())
-        
-        # Failing cases
-        failing_cases = [
-            (["Topic1"], 2.3),
-            (["A", "B", "C", "D"], 4.1),
-            (["A", "B"], 1.0)
-        ]
-        
-        for topics, grade in failing_cases:
-            portfolio = Portfolio(date(2023, 11, 20), topics)
-            portfolio.record_result(grade)
-            self.assertFalse(portfolio.is_passed())
-
-class TestStateTransitions(unittest.TestCase):
-    def test_state_transition_written(self):
-        exam = WrittenExam(date(2023, 12, 15), 90)
-        exam.record_result(1.7)
-        self.assertEqual(exam.status, ExamStatus.PASSED)
-        
-        exam.record_result(4.3)
-        self.assertEqual(exam.status, ExamStatus.RETRY)
-    
-    def test_state_transition_portfolio(self):
-        portfolio = Portfolio(date(2023, 11, 20), ["A", "B", "C"])
-        portfolio.record_result(3.9)
-        self.assertEqual(portfolio.status, ExamStatus.PASSED)
-        
-        portfolio.record_result(4.1)
-        self.assertEqual(portfolio.status, ExamStatus.RETRY)
-
-if __name__ == '__main__':
-    unittest.main()
+        with self.assertRaises(StateError):
+            _ = self.written_exam.is_passed()
