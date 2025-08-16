@@ -8,12 +8,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
+from rich.progress import Progress, BarColumn, TextColumn
 
 # Import entity classes and validation helpers
 from src.entities.exam import ExamStatus
 from src.entities.program import DegreeProgram
 from src.utils.validation import get_validated_input
-from src.entities.module import CourseModule, ModuleStatus
+from src.entities.module import CourseModule, ModuleStatus, MAX_ATTEMPTS
 
 class DashboardUI:
     """Manages all console output and user interaction."""
@@ -27,8 +28,6 @@ class DashboardUI:
         Displays a compact main dashboard view with key performance indicators.
         Shows only high-level stats and a credit progress bar.
         """
-        from rich.progress import Progress, BarColumn, TextColumn
-
         title = "Studien-Dashboard"
 
         if program is None:
@@ -45,8 +44,9 @@ class DashboardUI:
             all_modules = program.get_all_modules()
             total_credits = sum(module.credits for module in all_modules)
             achieved_credits = sum(module.credits for module in all_modules if module.is_passed())
-            credit_ratio = achieved_credits / total_credits if total_credits > 0 else 0
-
+            critical_failures = program.get_critical_failures()
+            is_completable = program.is_completable()
+            
             # Build text with KPI info
             content = Text(justify="left")
             content.append("Studiengang: ", style="bold")
@@ -59,6 +59,24 @@ class DashboardUI:
             content.append(f"{avg_grade if avg_grade is not None else '-'}\n", style="yellow")
             content.append("Erreichte Credits: ")
             content.append(f"{achieved_credits} / {total_credits}\n", style="green")
+            
+            # Critical failures warning
+            if critical_failures:
+                warning_text = Text.from_markup(
+                "[bold red]KRITISCHER FEHLER:[/bold red] "
+                "Studium kann nicht abgeschlossen werden!\n"
+            )
+                content.append("\n")    
+                content.append(warning_text)
+
+                for module in critical_failures:
+                    content.append(f" - {module.name} (3x nicht bestanden)\n", style="red")
+            
+            # Degree completion status
+            status_style = "red" if not is_completable else "green"
+            status_text = "NICHT ABSCHLIESSBAR" if not is_completable else "ABSCHLIESSBAR"
+            content.append("\nStudienabschluss: ")
+            content.append(status_text + "\n", style=f"bold {status_style}")
 
             # Add a simple horizontal progress bar for credits
             progress_bar = Progress(
@@ -73,10 +91,11 @@ class DashboardUI:
                 progress_bar.refresh()  # render bar once
 
             # Wrap the text and bar in a panel
+            panel_border_style = "red" if critical_failures else "green"
             panel = Panel(
                 content,
                 title=title,
-                border_style="green",
+                border_style=panel_border_style,
                 width=60,
                 expand=False
             )
@@ -131,6 +150,7 @@ class DashboardUI:
         table.add_column("Modulname", style="cyan", no_wrap=True)
         table.add_column("ECTS", justify="right")
         table.add_column("Status", justify="center")
+        table.add_column("Versuche", justify="center")
         table.add_column("Beste Note", justify="right", style="green")
 
         if not program.semesters:
@@ -138,24 +158,58 @@ class DashboardUI:
             return
             
         for semester in program.semesters:
-            table.add_section()
             for module in semester.modules:
                 grade = module.best_grade()
                 grade_str = f"{grade:.1f}" if grade is not None else "-"
+                
+                # Format attempts status
+                if module.status == ModuleStatus.NO_MORE_ATTEMPTS:
+                    attempts = f"[red]{len(module.exams)}/{MAX_ATTEMPTS}[/red]"
+                elif module.remaining_attempts() < MAX_ATTEMPTS:
+                    attempts = f"[yellow]{len(module.exams)}/{MAX_ATTEMPTS}[/yellow]"
+                else:
+                    attempts = f"{len(module.exams)}/{MAX_ATTEMPTS}"
                 
                 table.add_row(
                     str(semester.number),
                     module.name,
                     str(module.credits),
                     module.status.name,
+                    attempts,
                     grade_str
                 )
                 
         self.console.print(table)
     
-    def display_analysis(self, program: DegreeProgram, trend: str, grad_date: date, risk_modules: List[CourseModule]):
-        # Main analysis panel
-        self.console.print(Panel("[bold]ANALYSE DES STUDIENVERLAUFS[/bold]", style="blue"))
+    def display_analysis(self, program: DegreeProgram, trend: str, grad_date: date, 
+                        risk_modules: List[CourseModule], critical_failures: List[CourseModule]):
+        # Determine border style based on critical failures
+        border_style = "red" if critical_failures else "blue"
+        self.console.print(Panel("[bold]ANALYSE DES STUDIENVERLAUFS[/bold]", style=border_style))
+        
+        # Critical failures section
+        if critical_failures:
+            self.console.print("\n[bold red on white] KRITISCHE FEHLER [/bold red on white]")
+            self.console.print("Ihr Studium kann nicht abgeschlossen werden, da folgende Module\n"
+                            "definitiv nicht bestanden wurden (3 Versuche gescheitert):", style="bold red")
+            
+            crit_table = Table(show_header=True, header_style="bold red")
+            crit_table.add_column("Modul", style="red")
+            crit_table.add_column("ECTS", justify="center")
+            crit_table.add_column("Semester", justify="center")
+            
+            for module in critical_failures:
+                crit_table.add_row(
+                    module.name,
+                    str(module.credits),
+                    str(module.planned_semester)
+                )
+            
+            self.console.print(crit_table)
+            self.console.print("\n[bold]Mögliche Lösungen:[/bold]")
+            self.console.print("- Studiengang wechseln")
+            self.console.print("- Studienabbruch erwägen")
+            self.console.print("- Mit Studienberatung sprechen")
         
         # Progress Summary section
         summary_table = Table(show_header=False, box=None, padding=(0, 2))
@@ -196,35 +250,50 @@ class DashboardUI:
         
         # Add to summary
         summary_table.add_row("ECTS-Verlauf:", progress_bar)
-        summary_table.add_row("Vorauss. Abschluss:", grad_date.strftime('%d.%m.%Y'))
         summary_table.add_row("Status:", f"{trend}")
+        if grad_date:
+            summary_table.add_row("Vorauss. Abschluss:", grad_date.strftime('%d.%m.%Y'))
+        else:
+            summary_table.add_row("Vorauss. Abschluss:", "[red]Nicht möglich[/red]")
         
         self.console.print(summary_table)
         
-        # Risk Modules section
-        self.console.print("\n[bold]RISIKOMODULE[/bold]")
-        if risk_modules:
+        # Risk Modules section (only if there are any non-critical risk modules)
+        non_critical_risk = [m for m in risk_modules if m not in critical_failures]
+        if non_critical_risk:
+            self.console.print("\n[bold]RISIKOMODULE[/bold]")
             risk_table = Table(show_header=True, header_style="bold")
             risk_table.add_column("Modul", style="cyan")
             risk_table.add_column("Status", style="bold")
-            risk_table.add_column("Semester", justify="center")
+            risk_table.add_column("Sem", justify="center")
+            risk_table.add_column("Versuche", justify="center")
             risk_table.add_column("Problem", style="red")
             
-            for module in risk_modules:
-                # Determine problem description
+            for module in non_critical_risk:
+                # Format attempts
+                attempts = f"{len(module.exams)}/{MAX_ATTEMPTS}"
+                
+                # Determine problem
                 if module.status == ModuleStatus.FAILED:
-                    problem = "Nicht bestanden"
+                    problem = f"Nicht bestanden ({module.remaining_attempts()} Versuch(e) übrig)"
                 elif module.status == ModuleStatus.PLANNED and module.planned_semester < program.current_semester():
                     problem = "Nicht begonnen (überfällig)"
-                else:  # IN_PROGRESS with multiple fails
-                    problem = f"{sum(1 for e in module.exams if e.status == ExamStatus.FAILED)}x nicht bestanden"
+                else:
+                    problem = f"Nur noch {module.remaining_attempts()} Versuch(e)"
                 
                 risk_table.add_row(
                     module.name,
                     module.status.name,
                     str(module.planned_semester),
+                    attempts,
                     problem
                 )
             self.console.print(risk_table)
+        elif risk_modules:  # only critical failures were shown
+            pass
         else:
-            self.console.print("[green]Keine Risikomodule identifiziert[/green]")
+            self.console.print("\n[green]Keine weiteren Risikomodule identifiziert[/green]")
+        
+        # Single prompt at the end
+        self.console.print("\n[italic]Drücke Enter, um fortzufahren...[/italic]", end="")
+        self.console.input()
