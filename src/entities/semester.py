@@ -65,6 +65,14 @@ class AcademicSemester:
         # Avoid division by zero if a semester has modules with 0 credits.
         return (achieved / total) * 100 if total > 0 else 0.0
     
+    def to_dict(self):
+        """Converts the semester object to a dictionary."""
+        return {
+            '__class__': 'AcademicSemester',
+            'number': self.number,
+            'modules': [module.to_dict() for module in self.modules]
+        }
+    
     def __str__(self) -> str:
         """Provides a user-friendly string representation of the semester."""
         return f"Semester {self.number}: {self.earned_credits()}/{self.total_possible_credits()} ECTS"

@@ -78,6 +78,15 @@ class CourseModule:
                          if exam.status == ExamStatus.PASSED and exam.grade is not None]
         return min(passed_grades) if passed_grades else None
     
+    def to_dict(self):
+        """Converts the module object to a dictionary."""
+        return {
+            '__class__': 'CourseModule',
+            'name': self.name,
+            'credits': self.credits,
+            'exams': [exam.to_dict() for exam in self.exams]
+        }
+    
     def __str__(self) -> str:
         """Provides a user-friendly string representation of the module."""
         return f"{self.name} ({self.credits} ECTS) - {self.status.name}"
