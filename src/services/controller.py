@@ -4,6 +4,8 @@ Contains the main application controller that orchestrates the different service
 from src.services.data_manager import DataManager
 from src.services.ui_service import DashboardUI
 
+from src.entities.program import DegreeProgram
+
 class AppController:
     """The main application controller."""
 
@@ -34,7 +36,9 @@ class AppController:
             elif choice == '2':
                 self.ui.console.print("\nFunktion 'Module anzeigen' noch nicht implementiert.", style="bold red")
             elif choice == '3':
-                self.ui.console.print("\nFunktion 'Studiengang anlegen' noch nicht implementiert.", style="bold red")
+                self._create_new_program()
+                # We need to reload the program object after creating it
+                self.program = self.data_manager.load_program(self.data_filepath)
             elif choice == '4':
                 self.ui.console.print("\nProgramm wird beendet. Auf Wiedersehen!", style="bold blue")
                 break
@@ -43,3 +47,18 @@ class AppController:
             
             self.ui.console.input("\n[cyan]Drücke Enter, um fortzufahren...[/cyan]")
             self.ui.console.clear()
+
+    def _create_new_program(self):
+        """Handles the workflow for creating and saving a new degree program."""
+        program_data = self.ui.get_new_program_data()
+        
+        # Create the new DegreeProgram instance
+        self.program = DegreeProgram(
+            name=program_data["name"],
+            target_semesters=program_data["target_semesters"],
+            target_grade=program_data["target_grade"]
+        )
+        
+        # Save the new, empty program
+        self.data_manager.save_program(self.program, self.data_filepath)
+        self.ui.console.print("\n[bold green]✔ Studiengang wurde erfolgreich angelegt und gespeichert.[/bold green]")
