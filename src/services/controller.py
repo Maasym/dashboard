@@ -3,7 +3,6 @@ Contains the main application controller that orchestrates the different service
 """
 from src.services.data_manager import DataManager
 from src.services.ui_service import DashboardUI
-
 from src.entities.program import DegreeProgram
 
 class AppController:
@@ -13,31 +12,27 @@ class AppController:
         """Initializes the controller and its components."""
         self.data_manager = DataManager()
         self.ui = DashboardUI()
-        self.data_filepath = "data/studienverlauf.json" # Central place for the filepath
+        self.data_filepath = "data/studienverlauf.json"
+        self.program: DegreeProgram | None = None
 
     def run(self):
-        """Starts the main application flow."""
-        # 1. Load data
-        program = self.data_manager.load_program(self.data_filepath)
-        
-        # 2. Display the main dashboard
-        self.ui.display_dashboard(program)
-    
-    def run(self):
         """Starts the main application loop."""
-        program = self.data_manager.load_program(self.data_filepath)
-        
+        self.program = self.data_manager.load_program(self.data_filepath)
+    
         while True:
-            self.ui.display_dashboard(program)
+            # CHANGE 3: Use self.program everywhere now
+            self.ui.display_dashboard(self.program)
             choice = self.ui.display_main_menu()
             
             if choice == '1':
                 self.ui.console.print("\nFunktion 'Neue Prüfungsleistung' noch nicht implementiert.", style="bold red")
             elif choice == '2':
-                self.ui.console.print("\nFunktion 'Module anzeigen' noch nicht implementiert.", style="bold red")
+                if self.program:
+                    self.ui.display_module_table(self.program)
+                else:
+                    self.ui.console.print("\n[bold red]Fehler:[/bold red] Bitte zuerst einen Studiengang anlegen.",)
             elif choice == '3':
                 self._create_new_program()
-                # We need to reload the program object after creating it
                 self.program = self.data_manager.load_program(self.data_filepath)
             elif choice == '4':
                 self.ui.console.print("\nProgramm wird beendet. Auf Wiedersehen!", style="bold blue")

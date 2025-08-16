@@ -5,6 +5,7 @@ capturing user input in the console.
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+from rich.table import Table
 
 # Import the main data model class
 from src.entities.program import DegreeProgram
@@ -75,3 +76,39 @@ class DashboardUI:
             "target_semesters": target_semesters,
             "target_grade": target_grade
         }
+    
+    def display_module_table(self, program: DegreeProgram):
+        """
+        Displays a table of all modules in the degree program.
+
+        Args:
+            program (DegreeProgram): The main program object containing the modules.
+        """
+        table = Table(title="Modulübersicht", border_style="blue", show_header=True, header_style="bold magenta")
+        
+        # Define the columns for the table
+        table.add_column("Modulname", style="cyan", no_wrap=True)
+        table.add_column("ECTS", justify="right")
+        table.add_column("Status", justify="center")
+        table.add_column("Beste Note", justify="right", style="green")
+
+        if not program.semesters:
+            self.console.print("[yellow]Es sind noch keine Semester oder Module vorhanden.[/yellow]")
+            return
+            
+        # Populate the table with data from the program object
+        for semester in program.semesters:
+            table.add_section() # Adds a separator line for each semester
+            for module in semester.modules:
+                grade = module.best_exam_grade()
+                # Format the grade nicely, display "-" if no grade is available
+                grade_str = f"{grade:.1f}" if grade is not None else "-"
+                
+                table.add_row(
+                    module.name,
+                    str(module.credits),
+                    module.status.name, # Use the name of the enum member
+                    grade_str
+                )
+                
+        self.console.print(table)
