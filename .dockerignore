@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+*.log
+*.egg-info/
+.env
+venv/
+.envrc
+.idea/
+.vscode/
+test_program.json
+data/studienverlauf.json
+.DS_Store
+/tests/
