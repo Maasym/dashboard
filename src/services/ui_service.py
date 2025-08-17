@@ -110,8 +110,8 @@ class DashboardUI:
         self.console.print("  [1] Neues Modul hinzufügen")
         self.console.print("  [2] Neue Prüfungsleistung eintragen")
         self.console.print("  [3] Modulübersicht anzeigen")
-        self.console.print("  [4] Studiengang anlegen/überschreiben")
-        self.console.print("  [5] Analyse")
+        self.console.print("  [4] Analyse")
+        self.console.print("  [5] Studiengang anlegen/überschreiben")
         self.console.print("  [6] Beenden")
         
         choice = self.console.input("\nBitte wähle eine Option: ")

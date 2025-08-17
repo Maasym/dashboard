@@ -20,6 +20,13 @@ class CourseModule:
     """Represents a single course module within a degree program."""
     
     def __init__(self, name: str, credits: int, planned_semester: int):
+        if not name or not name.strip():
+            raise ValueError("Modulname darf nicht leer sein.")
+        if credits <= 0:
+            raise ValueError("ECTS-Punkte müssen positiv sein.")
+        if planned_semester <= 0:
+            raise ValueError("Semester muss positiv sein.")
+            
         self.name = name
         self.credits = credits
         self.planned_semester = planned_semester

@@ -10,6 +10,13 @@ class DegreeProgram:
     """Represents the entire degree program, holding all semesters and modules."""
     
     def __init__(self, name: str, target_semesters: int, target_grade: float):
+        if not name or not name.strip():
+            raise ValueError("Studiengangsname darf nicht leer sein.")
+        if target_semesters <= 0:
+            raise ValueError("Anzahl der Zielsemester muss positiv sein.")
+        if not (1.0 <= target_grade <= 5.0):
+            raise ValueError("Ziel-Notendurchschnitt muss zwischen 1.0 und 5.0 liegen.")
+        
         self.name = name
         self.target_semesters = target_semesters
         self.target_grade = target_grade

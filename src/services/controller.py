@@ -39,20 +39,18 @@ class AppController:
                 else:
                     self.ui.console.print("\n[bold red]Fehler:[/bold red] Bitte zuerst einen Studiengang anlegen.")
             elif choice == '4':
+                self._show_analysis()
+            elif choice == '5':
                 self._create_new_program()
                 self.program = self.data_manager.load_program(self.data_filepath)
-            elif choice == '5':
-                self._show_analysis()
             elif choice == '6':
                 self.ui.console.print("\nProgramm wird beendet. Auf Wiedersehen!", style="bold blue")
                 break
             else:
                 self.ui.console.print(f"\n'[bold red]{choice}[/bold red]' ist keine gültige Option.")
             
-            # Skip prompt for analysis view
-            if choice != '5':
-                self.ui.console.input("\n[cyan]Drücke Enter, um fortzufahren...[/cyan]")
-            
+            # Always prompt for Enter after each action
+            self.ui.console.input("\n[cyan]Drücke Enter, um fortzufahren...[/cyan]")
             self.ui.console.clear()
 
     def _create_new_program(self):
@@ -163,7 +161,7 @@ class AppController:
     
     def _show_analysis(self):
         if not self.program:
-            self.ui.console.print("\n[bold red]Error:[/bold red] Please create a program first")
+            self.ui.console.print("\n[bold red]Fehler:[/bold red] Bitte zuerst einen Studiengang mit Modulen anlegen.")
             return
         
         analyzer = ProgressAnalyzer(self.program)
