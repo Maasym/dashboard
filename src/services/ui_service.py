@@ -293,7 +293,3 @@ class DashboardUI:
             pass
         else:
             self.console.print("\n[green]Keine weiteren Risikomodule identifiziert[/green]")
-        
-        # Single prompt at the end
-        self.console.print("\n[italic]Drücke Enter, um fortzufahren...[/italic]", end="")
-        self.console.input()
