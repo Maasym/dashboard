@@ -7,6 +7,8 @@ from .module import CourseModule, ModuleStatus
 class Semester:
     """Represents a single academic semester containing multiple course modules."""
     def __init__(self, number: int):
+        if number <= 0:
+            raise ValueError("Semester-Nummer muss positiv sein.")
         self.number = number
         self.modules: List[CourseModule] = []
     

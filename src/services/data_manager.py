@@ -5,7 +5,7 @@ from typing import Any
 # Import all entity classes
 from src.entities.program import DegreeProgram
 from src.entities.semester import Semester
-from src.entities.module import CourseModule
+from src.entities.module import CourseModule, ModuleStatus
 from src.entities.exam import WrittenExam, Portfolio, CaseStudyExam, OralExam, ExamStatus
 
 def from_dict_hook(d: dict) -> Any:
@@ -21,17 +21,39 @@ def from_dict_hook(d: dict) -> Any:
     # --- Reconstruct Exam objects ---
     if class_name == "WrittenExam":
         obj = WrittenExam(exam_date=date.fromisoformat(d['exam_date']))
+        if 'grade' in d and d['grade'] is not None:
+            obj.grade = d['grade']
+            obj.status = ExamStatus[d['status']]
+            
     elif class_name == "Portfolio":
         obj = Portfolio(exam_date=date.fromisoformat(d['exam_date']))
+        if 'grade' in d and d['grade'] is not None:
+            obj.grade = d['grade']
+            obj.status = ExamStatus[d['status']]
+            
     elif class_name == "CaseStudyExam":
         obj = CaseStudyExam(exam_date=date.fromisoformat(d['exam_date']))
+        if 'grade' in d and d['grade'] is not None:
+            obj.grade = d['grade']
+            obj.status = ExamStatus[d['status']]
+            
     elif class_name == "OralExam":
         obj = OralExam(exam_date=date.fromisoformat(d['exam_date']))
+        if 'grade' in d and d['grade'] is not None:
+            obj.grade = d['grade']
+            obj.status = ExamStatus[d['status']]
 
     # --- Reconstruct CourseModule ---
     elif class_name == "CourseModule":
-        obj = CourseModule(name=d['name'], credits=d['credits'], planned_semester=d['planned_semester'])
-        obj.exams = [from_dict_hook(exam_dict) for exam_dict in d['exams']]
+        obj = CourseModule(
+            name=d['name'], 
+            credits=d['credits'], 
+            planned_semester=d['planned_semester']
+        )
+        # Add exams separately to trigger status calculation
+        for exam_dict in d['exams']:
+            exam = from_dict_hook(exam_dict)
+            obj.exams.append(exam)
 
     # --- Reconstruct Semester ---
     elif class_name == "Semester":
@@ -40,18 +62,14 @@ def from_dict_hook(d: dict) -> Any:
 
     # --- Reconstruct DegreeProgram ---
     elif class_name == "DegreeProgram":
-        obj = DegreeProgram(name=d['name'],
-                            target_semesters=d['target_semesters'],
-                            target_grade=d['target_grade'])
+        obj = DegreeProgram(
+            name=d['name'],
+            target_semesters=d['target_semesters'],
+            target_grade=d['target_grade']
+        )
         obj.semesters = [from_dict_hook(sem_dict) for sem_dict in d['semesters']]
 
-    # --- Restore grade and status ---
-    if obj and 'grade' in d and d['grade'] is not None:
-        obj.grade = d['grade']
-        obj.status = ExamStatus[d['status']]
-
-    return obj if obj else d
-
+    return obj
 
 class DataManager:
     """Handles saving and loading of the application's data."""

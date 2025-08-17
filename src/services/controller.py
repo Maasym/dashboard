@@ -6,7 +6,7 @@ from src.services.data_manager import DataManager
 from src.services.ui_service import DashboardUI
 from src.entities.program import DegreeProgram
 from src.entities.semester import Semester
-from src.entities.module import CourseModule
+from src.entities.module import CourseModule, ModuleStatus, MAX_ATTEMPTS
 from src.entities.exam import WrittenExam, Portfolio, CaseStudyExam, OralExam
 from src.utils.validation import get_validated_input
 from datetime import date
@@ -39,16 +39,17 @@ class AppController:
                 else:
                     self.ui.console.print("\n[bold red]Fehler:[/bold red] Bitte zuerst einen Studiengang anlegen.")
             elif choice == '4':
+                self._show_analysis()
+            elif choice == '5':
                 self._create_new_program()
                 self.program = self.data_manager.load_program(self.data_filepath)
-            elif choice == '5':
-                self._show_analysis()
             elif choice == '6':
                 self.ui.console.print("\nProgramm wird beendet. Auf Wiedersehen!", style="bold blue")
                 break
             else:
                 self.ui.console.print(f"\n'[bold red]{choice}[/bold red]' ist keine gültige Option.")
             
+            # Always prompt for Enter after each action
             self.ui.console.input("\n[cyan]Drücke Enter, um fortzufahren...[/cyan]")
             self.ui.console.clear()
 
@@ -97,19 +98,33 @@ class AppController:
             self.ui.console.print("\n[bold red]Fehler:[/bold red] Bitte zuerst einen Studiengang mit Modulen anlegen.")
             return
 
-        # Show modules
-        self.ui.console.print("\nModulauswahl für Prüfungsleistung")
-        modules = self.program.get_all_modules()
-        for idx, module in enumerate(modules, start=1):
-            self.ui.console.print(f"[{idx}] {module.name} ({module.status.name})")
+        # Get eligible modules (not passed and have attempts left)
+        eligible_modules = [
+            m for m in self.program.get_all_modules()
+            if m.status != ModuleStatus.PASSED and m.status != ModuleStatus.NO_MORE_ATTEMPTS
+        ]
+        
+        if not eligible_modules:
+            self.ui.console.print("\n[bold yellow]Keine Module verfügbar:[/bold yellow]")
+            self.ui.console.print("- Alle Module sind bestanden oder haben keine Versuche mehr")
+            self.ui.console.print("- Fügen Sie zuerst neue Module hinzu")
+            return
+
+        # Show eligible modules
+        self.ui.console.print("\n[bold]Modulauswahl für Prüfungsleistung[/bold]")
+        for idx, module in enumerate(eligible_modules, start=1):
+            status_icon = ""
+            if module.status == ModuleStatus.FAILED:
+                status_icon = "[yellow]⚠[/yellow] "
+            self.ui.console.print(f"[{idx}] {status_icon}{module.name} (Status: {module.status.name}, Verbleibende Versuche: {module.remaining_attempts()})")
 
         choice = get_validated_input("Zu welchem Modul soll die Prüfungsleistung hinzugefügt werden? ", int)
-        if choice < 1 or choice > len(modules):
+        if choice < 1 or choice > len(eligible_modules):
             self.ui.console.print("\n[bold red]Ungültige Auswahl.[/bold red]")
             return
 
-        selected_module = modules[choice - 1]
-
+        selected_module = eligible_modules[choice - 1]
+        
         # Choose exam type
         self.ui.console.print("\nPrüfungsart auswählen:")
         self.ui.console.print("[1] Schriftliche Prüfung")
@@ -141,11 +156,12 @@ class AppController:
 
         selected_module.add_exam(exam)
         self.data_manager.save_program(self.program, self.data_filepath)
-        self.ui.console.print(f"\n[bold green] Prüfungsleistung für Modul '{selected_module.name}' hinzugefügt.[/bold green]")
+        self.ui.console.print(f"\n[bold green]✔ Prüfungsleistung für Modul '{selected_module.name}' hinzugefügt.[/bold green]")
+        self.ui.console.print(f"[yellow]Verbleibende Versuche: {selected_module.remaining_attempts()}/{MAX_ATTEMPTS}[/yellow]")
     
     def _show_analysis(self):
         if not self.program:
-            self.ui.console.print("\n[bold red]Error:[/bold red] Bitte zuerst Studiengang erstellen")
+            self.ui.console.print("\n[bold red]Fehler:[/bold red] Bitte zuerst einen Studiengang mit Modulen anlegen.")
             return
         
         analyzer = ProgressAnalyzer(self.program)
@@ -159,5 +175,8 @@ class AppController:
         # Risk Modules
         risk_modules = analyzer.identify_risk_modules()
         
+        # Critical failures
+        critical_failures = self.program.get_critical_failures()
+        
         # Display results
-        self.ui.display_analysis(self.program, trend, grad_date, risk_modules)
+        self.ui.display_analysis(self.program, trend, grad_date, risk_modules, critical_failures)

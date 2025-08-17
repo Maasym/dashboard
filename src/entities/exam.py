@@ -33,8 +33,9 @@ class Exam(ABC):
         self.status: ExamStatus = ExamStatus.PLANNED
     
     def record_result(self, grade: float):
-        if not 1.0 <= grade <= 5.0:
-            raise ValueError("Grade must be between 1.0 and 5.0")
+        # Validate grade range (assuming 1.0 is best, 5.0 is worst, adjust as needed)
+        if not (1.0 <= grade <= 5.0):
+            raise ValueError("Note muss zwischen 1.0 (beste) und 5.0 (schlechteste) liegen.")
         self.grade = grade
         self.status = ExamStatus.PASSED if self.is_passed() else ExamStatus.FAILED
     

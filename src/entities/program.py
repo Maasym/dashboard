@@ -8,7 +8,15 @@ from .module import CourseModule, ModuleStatus
 
 class DegreeProgram:
     """Represents the entire degree program, holding all semesters and modules."""
+    
     def __init__(self, name: str, target_semesters: int, target_grade: float):
+        if not name or not name.strip():
+            raise ValueError("Studiengangsname darf nicht leer sein.")
+        if target_semesters <= 0:
+            raise ValueError("Anzahl der Zielsemester muss positiv sein.")
+        if not (1.0 <= target_grade <= 5.0):
+            raise ValueError("Ziel-Notendurchschnitt muss zwischen 1.0 und 5.0 liegen.")
+        
         self.name = name
         self.target_semesters = target_semesters
         self.target_grade = target_grade
@@ -48,6 +56,20 @@ class DegreeProgram:
         if total_credits == 0:
             return None
         return round(total_weighted_grade / total_credits, 2)
+    
+    def is_completable(self) -> bool:
+        """Checks if the degree can still be completed (no critical failures)"""
+        return not any(
+            module.status == ModuleStatus.NO_MORE_ATTEMPTS
+            for module in self.get_all_modules()
+        )
+    
+    def get_critical_failures(self) -> List[CourseModule]:
+        """Returns modules that prevent degree completion"""
+        return [
+            module for module in self.get_all_modules()
+            if module.status == ModuleStatus.NO_MORE_ATTEMPTS
+        ]
     
     def to_dict(self):
         return {

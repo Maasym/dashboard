@@ -1,8 +1,8 @@
 from datetime import date, timedelta
-from typing import List
+from typing import List, Optional
 from src.entities.exam import ExamStatus
 from src.entities.program import DegreeProgram
-from src.entities.module import CourseModule, ModuleStatus
+from src.entities.module import CourseModule, ModuleStatus, MAX_ATTEMPTS
 
 class ProgressAnalyzer:
     def __init__(self, program: DegreeProgram):
@@ -10,6 +10,10 @@ class ProgressAnalyzer:
     
     def calculate_ects_trend(self) -> str:
         """Determines if ECTS accumulation is on track"""
+        # If degree can't be completed, return critical status
+        if not self.program.is_completable():
+            return "[red]KRITISCH - Studium nicht abschließbar[/red]"
+        
         total_credits = sum(m.credits for m in self.program.get_all_modules())
         earned_credits = sum(m.credits for m in self.program.get_all_modules() 
                              if m.status == ModuleStatus.PASSED)
@@ -22,11 +26,15 @@ class ProgressAnalyzer:
         if completion >= expected_completion:
             return "Im Plan"
         elif completion >= expected_completion * 0.75:
-            return "Leicht zurück"
-        return "Weit zurück"
+            return "Leicht zurückliegend"
+        return "Deutlich zurückliegend"
 
-    def predict_graduation(self) -> date:
+    def predict_graduation(self) -> Optional[date]:
         """Estimates graduation date based on current pace"""
+        # Return None if degree can't be completed
+        if not self.program.is_completable():
+            return None
+        
         today = date.today()
         semesters_left = self.program.target_semesters - self.program.current_semester() + 1
         
@@ -40,18 +48,19 @@ class ProgressAnalyzer:
         current_semester = self.program.current_semester()
         
         for module in self.program.get_all_modules():
-            # Failed modules
-            if module.status == ModuleStatus.FAILED:
+            # Module with no more attempts (critical) - we'll handle separately in UI
+            if module.status == ModuleStatus.NO_MORE_ATTEMPTS:
                 risk_modules.append(module)
-            
+            # Module failed but can retry
+            elif module.status == ModuleStatus.FAILED:
+                risk_modules.append(module)
             # Planned modules in past semesters
             elif (module.status == ModuleStatus.PLANNED and 
                   module.planned_semester < current_semester):
                 risk_modules.append(module)
-                
-            # Modules with multiple failed attempts
+            # Modules with few remaining attempts
             elif (module.status == ModuleStatus.IN_PROGRESS and
-                  sum(1 for e in module.exams if e.status == ExamStatus.FAILED) >= 2):
+                  module.remaining_attempts() <= 1):  # Only 1 attempt left
                 risk_modules.append(module)
                 
         return risk_modules
