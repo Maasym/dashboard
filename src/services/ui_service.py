@@ -17,19 +17,44 @@ from src.utils.validation import get_validated_input
 from src.entities.module import CourseModule, ModuleStatus, MAX_ATTEMPTS
 
 class DashboardUI:
-    """Manages all console output and user interaction."""
+    """
+    User interface service managing all console interactions and display formatting.
+    
+    This class handles the presentation layer of the academic dashboard application,
+    using the Rich library to create colorful, formatted console output. It provides
+    methods for displaying complex data structures, collecting user input, and
+    presenting analysis results in a user-friendly format.
+    """
 
     def __init__(self):
-        """Initializes the UI with a rich Console object."""
+        """
+        Initialize the UI service with a Rich Console for enhanced formatting.
+        
+        The Rich Console enables colored text, tables, progress bars, and other
+        visual enhancements that improve the user experience.
+        """
         self.console = Console()
 
     def display_dashboard(self, program: DegreeProgram | None):
         """
-        Displays a compact main dashboard view with key performance indicators.
-        Shows only high-level stats and a credit progress bar.
+        Display the main dashboard with key performance indicators and progress.
+        
+        This method creates the primary interface view that users see, showing:
+        - Program name and basic information
+        - Current semester and target grade
+        - Credit progress with visual progress bar
+        - Critical warnings for failed modules
+        - Overall degree completion status
+        
+        The display adapts based on whether program data exists and includes
+        appropriate warnings for critical situations.
+        
+        Args:
+            program: The current degree program, or None if no data exists
         """
         title = "Studien-Dashboard"
 
+        # Handle case where no program data exists yet
         if program is None:
             content = Text(
                 "Willkommen! Es sind noch keine Studiendaten vorhanden.\n"
@@ -38,7 +63,7 @@ class DashboardUI:
             )
             panel = Panel(content, title=title, border_style="blue", expand=False)
         else:
-            # Gather program statistics
+            # Collect key metrics and statistics for display
             current_sem = program.current_semester()
             avg_grade = program.get_average_grade()
             all_modules = program.get_all_modules()
@@ -104,7 +129,13 @@ class DashboardUI:
 
     def display_main_menu(self) -> str:
         """
-        Displays the main menu and prompts the user for input.
+        Display the main menu options and collect user selection.
+        
+        This method presents the primary navigation menu with all available
+        application functions and waits for user input.
+        
+        Returns:
+            str: The user's menu choice as a string
         """
         self.console.print("\n[bold]Hauptmenü:[/bold]")
         self.console.print("  [1] Neues Modul hinzufügen")
@@ -119,9 +150,18 @@ class DashboardUI:
     
     def get_new_program_data(self) -> dict:
         """
-        Prompts the user to enter data for a new degree program using validation.
+        Collect degree program information from the user with validation.
+        
+        This method guides the user through entering all required information
+        for creating a new degree program, including input validation to ensure
+        data integrity.
+        
+        Returns:
+            dict: Dictionary containing program name, target semesters, and target grade
         """
         self.console.print("\n[bold blue]Neuen Studiengang anlegen[/bold blue]")
+        
+        # Collect basic program information with examples
         name = self.console.input("Name des Studiengangs (z.B. Computer Science): ")
         target_semesters = get_validated_input("Geplante Semesteranzahl (z.B. 6): ", int)
         target_grade = get_validated_input("Ziel-Notendurchschnitt (z.B. 2.0): ", float)
@@ -133,17 +173,36 @@ class DashboardUI:
         }
 
     def get_new_module_data(self) -> dict:
-        """Prompts for and validates data for a new module."""
+        """
+        Collect module information from the user with validation.
+        
+        This method guides the user through entering all required information
+        for adding a new module to the degree program.
+        
+        Returns:
+            dict: Dictionary containing module name, credits, and semester assignment
+        """
         self.console.print("\n[bold blue]Neues Modul hinzufügen[/bold blue]")
+        
+        # Collect module details with validation
         name = self.console.input("Name des Moduls: ")
         credits = get_validated_input("Anzahl ECTS-Punkte: ", int)
         semester_num = get_validated_input("Zu welchem Semester hinzufügen (z.B. 1): ", int)
+        
         return {"name": name, "credits": credits, "semester_num": semester_num}
 
     def display_module_table(self, program: DegreeProgram):
         """
-        Displays a table of all modules in the degree program.
+        Display a comprehensive table showing all modules in the degree program.
+        
+        This method creates a formatted table with columns for semester, module name,
+        ECTS credits, status, attempt counts, and best grades. The table provides
+        a complete overview of academic progress across all semesters.
+        
+        Args:
+            program: The degree program containing modules to display
         """
+        # Create table with appropriate columns and styling
         table = Table(title="Modulübersicht", border_style="blue", show_header=True, header_style="bold magenta")
         
         table.add_column("Semester", justify="center")
@@ -153,23 +212,27 @@ class DashboardUI:
         table.add_column("Versuche", justify="center")
         table.add_column("Beste Note", justify="right", style="green")
 
+        # Handle empty program case
         if not program.semesters:
             self.console.print("[yellow]Es sind noch keine Semester oder Module vorhanden.[/yellow]")
             return
-            
+        
+        # Populate table with module data from all semesters
         for semester in program.semesters:
             for module in semester.modules:
+                # Format grade display
                 grade = module.best_grade()
                 grade_str = f"{grade:.1f}" if grade is not None else "-"
                 
-                # Format attempts status
+                # Format attempt status with color coding for risk levels
                 if module.status == ModuleStatus.NO_MORE_ATTEMPTS:
-                    attempts = f"[red]{len(module.exams)}/{MAX_ATTEMPTS}[/red]"
+                    attempts = f"[red]{len(module.exams)}/{MAX_ATTEMPTS}[/red]"  # Critical
                 elif module.remaining_attempts() < MAX_ATTEMPTS:
-                    attempts = f"[yellow]{len(module.exams)}/{MAX_ATTEMPTS}[/yellow]"
+                    attempts = f"[yellow]{len(module.exams)}/{MAX_ATTEMPTS}[/yellow]"  # Warning
                 else:
-                    attempts = f"{len(module.exams)}/{MAX_ATTEMPTS}"
+                    attempts = f"{len(module.exams)}/{MAX_ATTEMPTS}"  # Normal
                 
+                # Add row with all module information
                 table.add_row(
                     str(semester.number),
                     module.name,
@@ -183,11 +246,31 @@ class DashboardUI:
     
     def display_analysis(self, program: DegreeProgram, trend: str, grad_date: date, 
                         risk_modules: List[CourseModule], critical_failures: List[CourseModule]):
-        # Determine border style based on critical failures
+        """
+        Display comprehensive academic progress analysis with visualizations.
+        
+        This method presents a detailed analysis including:
+        - Critical failure warnings and impact assessment
+        - Progress summary with visual progress bars
+        - ECTS trends and graduation predictions
+        - Risk module identification and recommendations
+        
+        The display uses color coding and visual elements to highlight
+        important information and guide user attention to critical issues.
+        
+        Args:
+            program: The degree program being analyzed
+            trend: ECTS accumulation trend description
+            grad_date: Predicted graduation date (or None if impossible)
+            risk_modules: List of modules requiring attention
+            critical_failures: List of permanently failed modules
+        """
+        # Use red borders for critical situations, blue for normal analysis
         border_style = "red" if critical_failures else "blue"
         self.console.print(Panel("[bold]ANALYSE DES STUDIENVERLAUFS[/bold]", style=border_style))
         
-        # Critical failures section
+        # === Critical Failures Section ===
+        # Show permanent failures that prevent degree completion
         if critical_failures:
             self.console.print("\n[bold red on white] KRITISCHE FEHLER [/bold red on white]")
             self.console.print("Ihr Studium kann nicht abgeschlossen werden, da folgende Module\n"
